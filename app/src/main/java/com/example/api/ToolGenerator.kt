@@ -72,4 +72,103 @@ object ToolGenerator {
             null
         }
     }
+
+    private val remixSystemInstructionText = """
+        You are ToolVerse AI Remix Engine, the ultimate global editor and builder of sandboxed, single-screen interactive web tools.
+        Your goal is to modify and upgrade an existing HTML, CSS, and JS web tool based on the user's requested improvements (which are in Hebrew).
+        
+        CRITICAL RULES:
+        1. You must respond ONLY with a valid JSON document matching this schema:
+           {
+             "name": "The updated tool name in Hebrew (e.g. 'מחשבון פיננסי אולטרה פרו')",
+             "description": "The updated beautiful Hebrew description reflecting the new features built",
+             "category": "The most appropriate category among: 'פיננסים', 'לימודים', 'בריאות', 'עסקים', 'משחקים', 'פרודוקטיביות', 'AI', 'תכנות', 'עיצוב', 'מדיה'",
+             "tags": ["tag1", "tag2"],
+             "index_html": "The updated HTML code",
+             "style_css": "The updated styling CSS. Retain the modern dark theme with vibrant neon highlights, excellent RTL margins, and proper accessibility sizing",
+             "script_js": "The updated JavaScript with full interactivity, new features connected properly"
+           }
+        
+        2. Deliver beautiful, clean, integrated code. Do NOT return any markdown wrapping around the JSON.
+        3. Translate any newly created elements or labels to HEBREW, fully respecting RTL.
+        4. The tools must remain completely offline competent with no dependence on external scripts or assets.
+    """.trimIndent()
+
+    suspend fun remixTool(
+        title: String,
+        description: String,
+        category: String,
+        tags: String,
+        html: String,
+        css: String,
+        js: String,
+        instruction: String
+    ): GeneratedToolResponse? = withContext(Dispatchers.IO) {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
+            Log.e(TAG, "Gemini API Key is missing or default placeholder")
+            return@withContext null
+        }
+
+        val prompt = """
+            Here are the details of the CURRENT tool:
+            - Name: $title
+            - Description: $description
+            - Category: $category
+            - Tags: $tags
+            
+            Current HTML:
+            ```html
+            $html
+            ```
+            
+            Current CSS:
+            ```css
+            $css
+            ```
+            
+            Current JS:
+            ```js
+            $js
+            ```
+            
+            USER REMIX / IMPROVEMENT INSTRUCTION:
+            $instruction
+            
+            Please modify the HTML, CSS, and JS code according to the instruction. Retain the styling aesthetic and ensure everything continues working seamlessly together. Return only the JSON document as specified.
+        """.trimIndent()
+
+        val request = GenerateContentRequest(
+            contents = listOf(
+                Content(
+                    parts = listOf(
+                        Part(text = prompt)
+                    )
+                )
+            ),
+            generationConfig = GenerationConfig(
+                responseMimeType = "application/json",
+                temperature = 0.6f
+            ),
+            systemInstruction = Content(
+                parts = listOf(Part(text = remixSystemInstructionText))
+            )
+        )
+
+        try {
+            val response = RetrofitClient.service.generateContent(apiKey, request)
+            val jsonText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+            if (jsonText != null) {
+                Log.d(TAG, "Received remix response: $jsonText")
+                val adapter = RetrofitClient.moshi.adapter(GeneratedToolResponse::class.java)
+                return@withContext adapter.fromJson(jsonText)
+            } else {
+                Log.e(TAG, "Empty text candidates returned for Remix from Gemini")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception during Tool Remix: ", e)
+            null
+        }
+    }
 }

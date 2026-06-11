@@ -1367,6 +1367,7 @@ fun ToolRunnerScreen(
     var showShareSheet by remember { mutableStateOf(false) }
     var showReviewDialog by remember { mutableStateOf(false) }
     var showVersionDialog by remember { mutableStateOf(false) }
+    var showRemixDialog by remember { mutableStateOf(false) }
 
     val reviews by viewModel.getReviewsForTool(tool.id).collectAsStateWithLifecycle(emptyList())
 
@@ -1408,7 +1409,7 @@ fun ToolRunnerScreen(
                     Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "חזרה", tint = CosmicCyan)
                 }
                 Spacer(modifier = Modifier.width(4.dp))
-                Column(modifier = Modifier.widthIn(max = 160.dp)) {
+                Column(modifier = Modifier.widthIn(max = 140.dp)) {
                     Text(
                         text = tool.name,
                         color = OffWhiteSlate,
@@ -1435,6 +1436,11 @@ fun ToolRunnerScreen(
                         contentDescription = "מועדף",
                         tint = if (tool.isFavorite) Color.Red else SpaceGreyText
                     )
+                }
+
+                // AI Remix Button
+                IconButton(onClick = { showRemixDialog = true }) {
+                    Icon(imageVector = Icons.Default.Build, contentDescription = "שפר כלי ב-AI", tint = GalacticViolet)
                 }
 
                 // Version log history
@@ -1518,6 +1524,140 @@ fun ToolRunnerScreen(
     if (showVersionDialog) {
         VersionHistoryDialog(tool = tool, onDismiss = { showVersionDialog = false })
     }
+
+    if (showRemixDialog) {
+        RemixToolDialog(tool = tool, viewModel = viewModel, onDismiss = { showRemixDialog = false })
+    }
+}
+
+@Composable
+fun RemixToolDialog(
+    tool: ToolEntity,
+    viewModel: ToolViewModel,
+    onDismiss: () -> Unit
+) {
+    var instruction by remember { mutableStateOf("") }
+    val isRemixing by viewModel.isRemixing.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val suggestions = listOf(
+        "הוסף כפתור איפוס נתונים ומחק הכל",
+        "שנה את העיצוב לסגנון ניאון עתידני כחול/ירוק",
+        "תרגם או שפר את הניסוח לעברית רשמית",
+        "הוסף מחשבון משני / שדה קלט נוסף",
+        "צור גב פשוט עם היסטוריית חישובים אחרונים"
+    )
+
+    AlertDialog(
+        onDismissRequest = { if (!isRemixing) onDismiss() },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = Icons.Default.Build, contentDescription = null, tint = CosmicCyan, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("שדרג ושפר כלי ב-AI ⚡", color = OffWhiteSlate, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (isRemixing) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = CosmicCyan, strokeWidth = 4.dp, modifier = Modifier.size(50.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
+                        Text("ה-AI משפר את הכלי ומעדכן קוד...", color = OffWhiteSlate, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(
+                            "מחשב חלופות קוד, משלב CSS מעודכן ויוצק סלקטורים חכמים לעבודה חלקה אופליין.",
+                            color = SpaceGreyText,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+                    }
+                } else {
+                    Text(
+                        "הקש הנחיות שדרוג וה-AI ישנה את כלי ה-RTL שלך במקום באופן מיידי:",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp
+                    )
+
+                    OutlinedTextField(
+                        value = instruction,
+                        onValueChange = { instruction = it },
+                        placeholder = { Text("למשל: תוסיף כפתור לניקוי שדות, ותשנה את צבע כותרת התוצאות לירוק זוהר.", fontSize = 12.sp) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        maxLines = 3,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+
+                    Text("רעיונות מהירים לשדרוג:", color = MaterialTheme.colorScheme.onBackground, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        suggestions.forEach { suggestion ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { instruction = suggestion },
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                            ) {
+                                Text(
+                                    text = suggestion,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(10.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (!isRemixing) {
+                Button(
+                    onClick = {
+                        if (instruction.isNotBlank()) {
+                            viewModel.remixToolWithAi(tool.id, instruction) { success, message ->
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                if (success) {
+                                    onDismiss()
+                                }
+                            }
+                        }
+                    },
+                    enabled = instruction.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = CosmicCyan)
+                ) {
+                    Text("יישם שינויים ✨", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        dismissButton = {
+            if (!isRemixing) {
+                TextButton(onClick = onDismiss) {
+                    Text("ביטול", color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    )
 }
 
 // ------------------------------------------------------------

@@ -204,4 +204,53 @@ class ToolViewModel(private val repository: ToolRepository) : ViewModel() {
         }
         return true
     }
+
+    private val _isRemixing = MutableStateFlow(false)
+    val isRemixing: StateFlow<Boolean> = _isRemixing.asStateFlow()
+
+    fun remixToolWithAi(toolId: String, instruction: String, onComplete: (Boolean, String) -> Unit) {
+        if (instruction.isBlank()) return
+        _isRemixing.value = true
+
+        viewModelScope.launch {
+            val currentTool = repository.getToolById(toolId)
+            if (currentTool != null) {
+                val response = ToolGenerator.remixTool(
+                    title = currentTool.name,
+                    description = currentTool.description,
+                    category = currentTool.category,
+                    tags = currentTool.tags,
+                    html = currentTool.html,
+                    css = currentTool.css,
+                    js = currentTool.js,
+                    instruction = instruction
+                )
+                if (response != null) {
+                    val remixedTool = currentTool.copy(
+                        name = response.name,
+                        description = response.description,
+                        category = response.category,
+                        tags = response.tags.joinToString(","),
+                        html = response.index_html,
+                        css = response.style_css,
+                        js = response.script_js,
+                        lastUpdated = "עודכן ע\"י AI"
+                    )
+                    repository.insertTool(remixedTool)
+                    // Live Hot-Reload target!
+                    if (_selectedTool.value?.id == toolId) {
+                        _selectedTool.value = remixedTool
+                    }
+                    _isRemixing.value = false
+                    onComplete(true, "הכלי שופר בהצלחה! יישמנו את השינויים שלך בלייב 🎉")
+                } else {
+                    _isRemixing.value = false
+                    onComplete(false, "לא הצלחנו ליישם את השינויים. ודא שמפתח ה-API מוגדר כראוי ⚠️")
+                }
+            } else {
+                _isRemixing.value = false
+                onComplete(false, "הכלי לא נמצא במאגר המערכת.")
+            }
+        }
+    }
 }
