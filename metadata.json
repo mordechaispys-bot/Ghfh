@@ -1,0 +1,8 @@
+{
+  "name": "Remix: ToolVerse",
+  "description": "ויקיפדיית הכלים העולמית - מאגר הכלים הגדול בעולם ליצירה והפעלת כלים באופליין וב-AI",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
